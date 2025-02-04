@@ -1,0 +1,103 @@
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, IterableDataset
+from datasets import load_dataset
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import math
+from torchsummary import summary
+from model import SmolLM2
+from utils import get_device
+
+
+class StreamingDataset(IterableDataset):
+    def __init__(self, tokenizer, block_size=512):
+        self.dataset = load_dataset("smollm-ai/smollm-corpus", streaming=True)["train"]
+        self.tokenizer = tokenizer
+        self.block_size = block_size
+
+    def __iter__(self):
+        iterator = iter(self.dataset)
+        buffer = []
+        
+        for item in iterator:
+            tokens = self.tokenizer.encode(item['text'])
+            buffer.extend(tokens)
+            
+            while len(buffer) >= self.block_size:
+                yield torch.tensor(buffer[:self.block_size])
+                buffer = buffer[self.block_size:]
+
+def get_tokenizer_n_model():
+    checkpoint = "HuggingFaceTB/SmolLM2-135M"
+    device = get_device()
+    # return SmolLM2(vocab_size=vocab_size)
+    # # Initialize tokenizer
+    # tokenizer = AutoTokenizer.from_pretrained("gpt2")  # You can use a different tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+    # for multiple GPUs install accelerate and do `model = AutoModelForCausalLM.from_pretrained(checkpoint, device_map="auto")`
+    model = AutoModelForCausalLM.from_pretrained(checkpoint)
+    return model, tokenizer
+
+def create_causal_mask(size):
+    # Create a causal mask for autoregressive attention
+    # Lower triangular matrix of 1s
+    mask = torch.triu(torch.ones(size, size), diagonal=1).bool()
+    # Convert to 0s and 1s where 1 allows attention
+    return ~mask
+
+def train_model():
+
+    # Initialize model
+    model, tokenizer = get_tokenizer_n_model()
+    
+    vocab_size = tokenizer.vocab_size
+    device = get_device()
+    model.to(device)
+
+    # Print model summary
+    # model.to('cpu')
+    # summary(model, input_size=(1, 28, 28))
+    # model.to(device)
+    print(model)
+    
+    inputs = tokenizer.encode("Gravity is", return_tensors="pt").to(device)
+    # Create causal mask for inference
+    mask = create_causal_mask(inputs.size(1)).to(device)
+    print(inputs.shape)
+    print(mask.shape)
+    outputs = model.generate(inputs)
+    print(tokenizer.decode(outputs[0]))
+    
+
+    # # Initialize dataset and dataloader
+    # dataset = StreamingDataset(tokenizer)
+    # dataloader = DataLoader(dataset, batch_size=8)
+
+    # # Training parameters
+    # optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    # criterion = nn.CrossEntropyLoss()
+
+    # # Training loop
+    # model.train()
+    # for epoch in range(10):
+    #     for batch_idx, batch in enumerate(dataloader):
+    #         batch = batch.to(device)
+            
+    #         # Create targets (shifted by 1 position)
+    #         targets = batch[:, 1:].contiguous()
+    #         inputs = batch[:, :-1].contiguous()
+
+    #         # Forward pass
+    #         outputs = model(inputs)
+    #         loss = criterion(outputs.view(-1, vocab_size), targets.view(-1))
+
+    #         # Backward pass
+    #         optimizer.zero_grad()
+    #         loss.backward()
+    #         optimizer.step()
+
+    #         if batch_idx % 100 == 0:
+    #             print(f"Epoch: {epoch}, Batch: {batch_idx}, Loss: {loss.item():.4f}")
+
+if __name__ == "__main__":
+    train_model()
