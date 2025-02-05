@@ -7,7 +7,7 @@ import math
 from torchsummary import summary
 from model import SmolLM2
 from utils import get_device
-
+from config import Config
 
 class StreamingDataset(IterableDataset):
     def __init__(self, tokenizer, block_size=512):
@@ -27,15 +27,17 @@ class StreamingDataset(IterableDataset):
                 yield torch.tensor(buffer[:self.block_size])
                 buffer = buffer[self.block_size:]
 
-def get_tokenizer_n_model():
+def get_pretrained_tokenizer_n_model():
     checkpoint = "HuggingFaceTB/SmolLM2-135M"
     device = get_device()
-    # return SmolLM2(vocab_size=vocab_size)
-    # # Initialize tokenizer
-    # tokenizer = AutoTokenizer.from_pretrained("gpt2")  # You can use a different tokenizer
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
     # for multiple GPUs install accelerate and do `model = AutoModelForCausalLM.from_pretrained(checkpoint, device_map="auto")`
     model = AutoModelForCausalLM.from_pretrained(checkpoint)
+    return model, tokenizer
+
+def get_custom_tokenizer_n_model():
+    model = SmolLM2(config=Config())
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")  # You can use a different tokenizer
     return model, tokenizer
 
 def create_causal_mask(size):
@@ -48,7 +50,7 @@ def create_causal_mask(size):
 def train_model():
 
     # Initialize model
-    model, tokenizer = get_tokenizer_n_model()
+    model, tokenizer = get_custom_tokenizer_n_model()
     
     vocab_size = tokenizer.vocab_size
     device = get_device()
@@ -65,7 +67,8 @@ def train_model():
     mask = create_causal_mask(inputs.size(1)).to(device)
     print(inputs.shape)
     print(mask.shape)
-    outputs = model.generate(inputs)
+
+    outputs = model.generate(inputs, attention_mask=mask)
     print(tokenizer.decode(outputs[0]))
     
 

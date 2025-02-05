@@ -10,16 +10,6 @@ import torch.nn.functional as F
 # activation function. It uses RMSNorm for normalization.
 # Other Good reads: https://pub.towardsai.net/llama-explained-a70e71e706e9
 
-class RMSNorm(nn.Module):
-    def __init__(self, dim: int, eps: float = 1e-6):
-        super().__init__()
-        self.eps = eps
-        self.weight = nn.Parameter(torch.ones(dim))
-
-    def forward(self, x):
-        # Calculate RMS
-        rms = torch.sqrt(torch.mean(x * x, dim=-1, keepdim=True) + self.eps)
-        return x / rms * self.weight
 
 def precompute_rotary_emb(dim: int, max_seq_len: int, base: int = 10000):
     # Create position indices
@@ -105,8 +95,8 @@ class LlamaBlock(nn.Module):
         super().__init__()
         self.attention = LlamaAttention(config.nn_embed, config.num_attention_heads, config.max_sequence_len)
         self.feed_forward = LlamaFFN(config.nn_embed, config.ffn_intermediate_size)
-        self.attention_norm = RMSNorm(config.nn_embed)
-        self.ffn_norm = RMSNorm(config.nn_embed)
+        self.attention_norm = nn.RMSNorm(config.nn_embed, eps=config.rms_norm_eps)
+        self.ffn_norm = nn.RMSNorm(config.nn_embed, eps=config.rms_norm_eps)
 
     def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None):
         x = x + self.attention(self.attention_norm(x), mask)
@@ -123,7 +113,7 @@ class SmolLM2(nn.Module):
         self.layers = nn.ModuleList([
             LlamaBlock(config) for _ in range(config.num_hidden_layers)
         ])
-        self.norm = RMSNorm(config.nn_embed)
+        self.norm = nn.RMSNorm(config.nn_embed, eps=config.rms_norm_eps)
         # final layer returning the logits of size (batch_size, vocab_size)
         self.lm_head = nn.Linear(config.nn_embed, config.vocab_size, bias=False)
 
