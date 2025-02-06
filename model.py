@@ -83,57 +83,63 @@ class LlamaAttention(nn.Module):
         self.sin, self.cos = precompute_rotary_emb(self.head_dim, max_position_embeddings)
 
     def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None, use_cache: bool = False):
-        # BatchSize, Sequence Length, Embedding Dimensions
         batch_size, seq_len, _ = x.shape
-        print(x.shape)
-        # print("batch_size", batch_size)
-        # print("seq_len", seq_len)
-        # print("num_heads", self.num_heads)
-        # print("num_kv_heads", self.num_kv_heads)
-        # print("num_queries_per_kv", self.num_queries_per_kv)
-        # print("head_dim", self.head_dim)
         
-        # Project and reshape
-        q = self.q_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim)     # (B, T, H * D/H) -> (B, T, H, D/H)
-        k = self.k_proj(x).view(batch_size, seq_len, self.num_kv_heads, self.head_dim)  # (B, T, H_kv * D/H) -> (B, T, H_kv, D/H)
-        v = self.v_proj(x).view(batch_size, seq_len, self.num_kv_heads, self.head_dim)  # (B, T, H_kv * D/H) -> (B, T, H_kv, D/H)
+        # Project inputs
+        q = self.q_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim)
+        k = self.k_proj(x).view(batch_size, seq_len, self.num_kv_heads, self.head_dim)
+        v = self.v_proj(x).view(batch_size, seq_len, self.num_kv_heads, self.head_dim)
 
-        # Use the precomputed sin and cos for the input sequence length
-        # sin = self.sin[:seq_len].to(x.device)
-        # cos = self.cos[:seq_len].to(x.device)
+        # Get rotary embeddings for the new tokens
+        # sin = self.sin[self.cache_seq_len:self.cache_seq_len + seq_len].to(x.device)
+        # cos = self.cos[self.cache_seq_len:self.cache_seq_len + seq_len].to(x.device)
         sin = self.sin[:seq_len].to(x.device)
         cos = self.cos[:seq_len].to(x.device)
 
-        # Apply rotary embeddings on q & k
+        # Apply rotary embeddings
         q = apply_rotary_emb(q, sin, cos)
         k = apply_rotary_emb(k, sin, cos)
 
+        # Handle KV caching
+        # if use_cache:
+        #     if self.k_cache is None:
+        #         # Initialize cache if empty
+        #         self.k_cache = k
+        #         self.v_cache = v
+        #     else:
+        #         # Concatenate new KV with cached KV
+        #         self.k_cache = torch.cat([self.k_cache, k], dim=1)
+        #         self.v_cache = torch.cat([self.v_cache, v], dim=1)
+            
+        #     # Use concatenated KV pairs
+        #     k = self.k_cache
+        #     v = self.v_cache
+            
+        #     # Update cache sequence length
+        #     self.cache_seq_len += seq_len
+
         # Reshape for attention computation
-        q = q.transpose(1, 2)  # (B, T, H, D/H) -> (B, H, T, D/H)
-        k = k.transpose(1, 2)  # (B, T', H_kv, D/H) -> (B, H_kv, T', D/H)
-        v = v.transpose(1, 2)  # (B, T', H_kv, D/H) -> (B, H_kv, T', D/H)
+        q = q.transpose(1, 2)
+        k = k.transpose(1, 2)
+        v = v.transpose(1, 2)
         
-        # Repeat k and v for each query head in the group
+        # Handle GQA (Grouped Query Attention)
         if self.num_queries_per_kv > 1:
-            k = k.unsqueeze(2).expand(-1, -1, self.num_queries_per_kv, -1, -1) # (B, H_kv, T', D/H_kv) -> (B, H_kv, 1, T', D/H) -> (B, H_kv, N_q, T', D/H)
+            k = k.unsqueeze(2).expand(-1, -1, self.num_queries_per_kv, -1, -1)
             v = v.unsqueeze(2).expand(-1, -1, self.num_queries_per_kv, -1, -1)
-            k = k.reshape(batch_size, self.num_heads, -1, self.head_dim)   # (B, H_kv, N_q, T', D/H) -> (B, H_kv*N_q, T, D/H) i.e (B, H, T, D/H)
-            v = v.reshape(batch_size, self.num_heads, -1, self.head_dim) 
+            k = k.reshape(batch_size, self.num_heads, -1, self.head_dim)
+            v = v.reshape(batch_size, self.num_heads, -1, self.head_dim)
         
         # Compute attention
-        scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale # (B, H, T, D/H) * (B, H, D/H, T) -> (B, H, T, T)
-        # print("scores.shape: " + str(scores.shape))
-        # print("mask.shape: " + str(mask.shape))
+        scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale
+        
         if mask is not None:
             scores = scores.masked_fill(mask == 0, float('-inf'))
-        attn = F.softmax(scores, dim=-1)
         
-        # Compute output
-        # out = torch.matmul(attn, v) # (B, H, T, T) * (B, H, T, D/H) -> (B, H, T, D/H)
-        # out = out.transpose(1, 2).contiguous().view(batch_size, seq_len, -1) # (B, H, T, D/H) -> (B, T, D)
-        # return self.o_proj(out) # (B, T, D) -> (B, T, D)
+        attn = F.softmax(scores, dim=-1)
         out = torch.matmul(attn, v)
         out = out.transpose(1, 2).contiguous().view(batch_size, seq_len, -1)
+        
         return self.o_proj(out)
 
     def clear_cache(self):
@@ -219,42 +225,49 @@ class SmolLM2(nn.Module):
         Returns:
             Generated token ids (B, T+max_new_tokens)
         """
-        # Create attention mask for input sequence
         batch_size, seq_len = input_ids.shape
-        # input_mask = self.create_causal_mask(seq_len, device=input_ids.device)  # (1, 1, seq_len, seq_len)
         
         # clear existing KV caching
         self.clear_cache()
         
-        # Create a new tensor of size (B, T+max_new_tokens) to store the generated tokens (inital value of these new tokes is 0)
+        # Create a new tensor to store the generated tokens
         input_ids = torch.cat([input_ids, torch.zeros((batch_size, max_new_tokens), 
                             dtype=torch.long, device=input_ids.device)], dim=1)
         
         # Generate tokens one at a time
         for idx in range(max_new_tokens):
             print(f"Generating token {idx+1} of {max_new_tokens}")
-            # Create mask
-            next_mask = self.create_causal_mask(seq_len + idx, device=input_ids.device) # (B, 1, 1, T')
-            # print("next_mask.shape: " + str(next_mask.shape))
-            # print("input_ids[:, :seq_len + idx].shape: " + str(input_ids[:, :seq_len + idx].shape))
+            
+            # Get the current sequence length including cached tokens
+            current_seq_len = seq_len + idx
 
-            # Process including the new tokens (B, T')
-            logits = self(input_ids[:, :seq_len + idx], next_mask, use_cache=False)
+            next_mask = self.create_causal_mask(current_seq_len, device=input_ids.device)
+            
+            # Create mask that includes both the current input and cached tokens
+            # if idx == 0:
+            #     # First iteration - create mask for the full input sequence
+            #     next_mask = self.create_causal_mask(current_seq_len, device=input_ids.device)
+            # else:
+            #     # Subsequent iterations - create mask for the new token attending to all previous tokens
+            #     next_mask = torch.ones((1, 1, 1, current_seq_len), device=input_ids.device)
+
+            # Process including the new tokens
+            logits = self(input_ids[:, :current_seq_len], next_mask, use_cache=False)
             
             # Get the last token's logits
-            next_token_logits = logits[:, -1, :] / temperature # (B, V)
+            next_token_logits = logits[:, -1, :] / temperature
             
-            # Apply top-k filtering on the last token's logits
+            # Apply top-k filtering
             top_k_logits, top_k_indices = torch.topk(next_token_logits, top_k, dim=-1)
-            probs = F.softmax(top_k_logits, dim=-1) # probability distribution over the top k tokens (B, K)
+            probs = F.softmax(top_k_logits, dim=-1)
             
-            # Sample from the filtered distribution i.e. get the top token for every batch
+            # Sample from the filtered distribution
             next_token = top_k_indices[
-                torch.arange(batch_size, device=input_ids.device), # (0,1,2....)
-                torch.multinomial(probs, num_samples=1).squeeze(1) # (1,0,5,.. )..Indices of top sample of every batch
-            ] # (B, 1)
+                torch.arange(batch_size, device=input_ids.device),
+                torch.multinomial(probs, num_samples=1).squeeze(1)
+            ]
             
             # Update input_ids with the new token
-            input_ids[:, seq_len + idx] = next_token
+            input_ids[:, current_seq_len] = next_token
         
         return input_ids

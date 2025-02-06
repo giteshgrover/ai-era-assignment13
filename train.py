@@ -41,13 +41,6 @@ def get_custom_tokenizer_n_model():
     return model, tokenizer
 
 
-def create_causal_mask(seq_len):
-    """Creates a causal attention mask where each position can only attend to previous positions"""
-    # Create lower triangular matrix (including diagonal)
-    mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool()
-    # mask = torch.triu(torch.ones(1, 1, seq_len, seq_len), diagonal=1).bool()
-    # Invert and convert to float
-    return (~mask).float()
     # return mask.to(device)
 
 def compareModels(device):
@@ -75,10 +68,10 @@ def train_model():
     
     inputs = tokenizer.encode("What is Gravity?", return_tensors="pt").to(device)
     B, T = inputs.size()
-    # Create causal mask for inference
-    attention_mask = create_causal_mask(T).to(device)
-    # Expand mask for batch size and number of heads
-    attention_mask = attention_mask.view(1, 1, T, T).expand(B, -1, -1, -1)
+    # # Create causal mask for inference
+    # attention_mask = create_causal_mask(T).to(device)
+    # # Expand mask for batch size and number of heads
+    # attention_mask = attention_mask.view(1, 1, T, T).expand(B, -1, -1, -1)
 
     outputs = model.generate(inputs)
     print(tokenizer.decode(outputs[0]))
