@@ -101,24 +101,13 @@ class LlamaAttention(nn.Module):
         # Use the precomputed sin and cos for the input sequence length
         # sin = self.sin[:seq_len].to(x.device)
         # cos = self.cos[:seq_len].to(x.device)
-        sin = self.sin[self.cache_seq_len:self.cache_seq_len + seq_len].to(x.device)
-        cos = self.cos[self.cache_seq_len:self.cache_seq_len + seq_len].to(x.device)
+        sin = self.sin[:seq_len].to(x.device)
+        cos = self.cos[:seq_len].to(x.device)
 
         # Apply rotary embeddings on q & k
         q = apply_rotary_emb(q, sin, cos)
         k = apply_rotary_emb(k, sin, cos)
-        
-        # Handle KV caching
-        if use_cache:
-            if self.k_cache is None:
-                self.k_cache = k
-                self.v_cache = v
-            else:
-                self.k_cache = torch.cat([self.k_cache, k], dim=1)
-                self.v_cache = torch.cat([self.v_cache, v], dim=1)
-            k, v = self.k_cache, self.v_cache
-            self.cache_seq_len += seq_len
-        
+
         # Reshape for attention computation
         q = q.transpose(1, 2)  # (B, T, H, D/H) -> (B, H, T, D/H)
         k = k.transpose(1, 2)  # (B, T', H_kv, D/H) -> (B, H_kv, T', D/H)
@@ -133,6 +122,8 @@ class LlamaAttention(nn.Module):
         
         # Compute attention
         scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale # (B, H, T, D/H) * (B, H, D/H, T) -> (B, H, T, T)
+        # print("scores.shape: " + str(scores.shape))
+        # print("mask.shape: " + str(mask.shape))
         if mask is not None:
             scores = scores.masked_fill(mask == 0, float('-inf'))
         attn = F.softmax(scores, dim=-1)
@@ -205,6 +196,15 @@ class SmolLM2(nn.Module):
         """Clear KV cache in all attention layers"""
         for layer in self.layers:
             layer.attention.clear_cache()
+    
+    def create_causal_mask(self, seq_len, device):
+        """Creates a causal attention mask where each position can only attend to previous positions"""
+        # Create lower triangular matrix (including diagonal)
+        # mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool()
+        # mask = torch.triu(torch.ones(1, 1, seq_len, seq_len), diagonal=1).bool()
+        # # Invert and convert to float
+        # return (~mask).float()
+        return torch.tril(torch.ones(seq_len, seq_len)).view(1, 1, seq_len, seq_len).to(device)
 
     @torch.no_grad()
     def generate(self, input_ids: torch.Tensor, max_new_tokens: int = 20, 
@@ -221,20 +221,26 @@ class SmolLM2(nn.Module):
         """
         # Create attention mask for input sequence
         batch_size, seq_len = input_ids.shape
-        # TODO where are the 0s?
-        input_mask = torch.ones((batch_size, 1, seq_len, seq_len), device=input_ids.device) # (B, 1, T, T) of 1s
+        # input_mask = self.create_causal_mask(seq_len, device=input_ids.device)  # (1, 1, seq_len, seq_len)
         
         # clear existing KV caching
         self.clear_cache()
         
-        # Process the initial input sequence to generate the first token
-        logits = self(input_ids, input_mask, use_cache=True) # (B, T, V)
         # Create a new tensor of size (B, T+max_new_tokens) to store the generated tokens (inital value of these new tokes is 0)
         input_ids = torch.cat([input_ids, torch.zeros((batch_size, max_new_tokens), 
                             dtype=torch.long, device=input_ids.device)], dim=1)
         
         # Generate tokens one at a time
         for idx in range(max_new_tokens):
+            print(f"Generating token {idx+1} of {max_new_tokens}")
+            # Create mask
+            next_mask = self.create_causal_mask(seq_len + idx, device=input_ids.device) # (B, 1, 1, T')
+            # print("next_mask.shape: " + str(next_mask.shape))
+            # print("input_ids[:, :seq_len + idx].shape: " + str(input_ids[:, :seq_len + idx].shape))
+
+            # Process including the new tokens (B, T')
+            logits = self(input_ids[:, :seq_len + idx], next_mask, use_cache=False)
+            
             # Get the last token's logits
             next_token_logits = logits[:, -1, :] / temperature # (B, V)
             
@@ -250,12 +256,5 @@ class SmolLM2(nn.Module):
             
             # Update input_ids with the new token
             input_ids[:, seq_len + idx] = next_token
-            
-            # Create mask for the next token TODO where are the 0s?
-            next_mask = torch.ones((batch_size, 1, 1, seq_len + idx + 1), device=input_ids.device) # (B, 1, 1, T+1) of 1s
-            
-            # Process only the new token (B, 1)
-            logits = self(input_ids[:, seq_len + idx:seq_len + idx + 1], 
-                         next_mask, use_cache=True)
         
         return input_ids
