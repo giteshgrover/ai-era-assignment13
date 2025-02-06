@@ -40,35 +40,47 @@ def get_custom_tokenizer_n_model():
     tokenizer = AutoTokenizer.from_pretrained("gpt2")  # You can use a different tokenizer
     return model, tokenizer
 
-def create_causal_mask(size):
-    # Create a causal mask for autoregressive attention
-    # Lower triangular matrix of 1s
-    mask = torch.triu(torch.ones(size, size), diagonal=1).bool()
-    # Convert to 0s and 1s where 1 allows attention
-    return ~mask
+
+def create_causal_mask(seq_len):
+    """Creates a causal attention mask where each position can only attend to previous positions"""
+    # Create lower triangular matrix (including diagonal)
+    mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool()
+    # mask = torch.triu(torch.ones(1, 1, seq_len, seq_len), diagonal=1).bool()
+    # Invert and convert to float
+    return (~mask).float()
+    # return mask.to(device)
+
+def compareModels(device):
+    model1, tokenizer1 = get_pretrained_tokenizer_n_model()
+    model1.to(device)
+    model2, tokenizer2 = get_custom_tokenizer_n_model()
+    model2.to(device)
+
+    print("Model 1 - HuggingFaceTB/SmolLM2-135M:")
+    print(model1)
+    print("Model 2 - Custom SmolLM2-135M Model :")
+    print(model2)
 
 def train_model():
+    device = get_device()
+
+    compareModels(device)
 
     # Initialize model
+    # model, tokenizer = get_pretrained_tokenizer_n_model()
     model, tokenizer = get_custom_tokenizer_n_model()
-    
-    vocab_size = tokenizer.vocab_size
-    device = get_device()
     model.to(device)
+    vocab_size = tokenizer.vocab_size
 
-    # Print model summary
-    # model.to('cpu')
-    # summary(model, input_size=(1, 28, 28))
-    # model.to(device)
-    print(model)
     
-    inputs = tokenizer.encode("Gravity is", return_tensors="pt").to(device)
+    inputs = tokenizer.encode("What is Gravity?", return_tensors="pt").to(device)
+    B, T = inputs.size()
     # Create causal mask for inference
-    mask = create_causal_mask(inputs.size(1)).to(device)
-    print(inputs.shape)
-    print(mask.shape)
+    attention_mask = create_causal_mask(T).to(device)
+    # Expand mask for batch size and number of heads
+    attention_mask = attention_mask.view(1, 1, T, T).expand(B, -1, -1, -1)
 
-    outputs = model.generate(inputs, attention_mask=mask)
+    outputs = model.generate(inputs)
     print(tokenizer.decode(outputs[0]))
     
 
