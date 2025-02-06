@@ -192,6 +192,8 @@ class SmolLM2(nn.Module):
         self.lm_head = nn.Linear(config.nn_embed, config.vocab_size, bias=False)
 
     def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None, use_cache: bool = False):
+        if (mask is None):
+            mask = self.create_causal_mask(x.shape[1], device=x.device)
         x = self.embedding(x)
         for layer in self.layers:
             x = layer(x, mask, use_cache)
@@ -236,7 +238,7 @@ class SmolLM2(nn.Module):
         
         # Generate tokens one at a time
         for idx in range(max_new_tokens):
-            print(f"Generating token {idx+1} of {max_new_tokens}")
+            # print(f"Generating token {idx+1} of {max_new_tokens}")
             
             # Get the current sequence length including cached tokens
             current_seq_len = seq_len + idx

@@ -12,12 +12,13 @@ class Config:
     rms_norm_eps: float = 1.0e-05
     nn_top_k: int = 50 # top k for the model
     nn_temperature: float = 1.0 # temperature for the model
-    # checkpoint_interval: int = 2000
-    # checkpoints_path = "checkpoints"
+    tokenizer_name_or_path: str = "HuggingFaceTB/cosmo2-tokenizer"
+    checkpoint_interval: int = 2000
+    checkpoints_path = "checkpoints"
     # init_method_std: 0.041666666666666664
-    # nn_train_tok_seq: int = 32 # Actual training token sequence
+    nn_train_tok_seq: int = 32 # Actual training token sequence
     # nn_mlp_expansion: int = 4 # Expansion in the MLP layer 
-    # batch_size: int = 256
+    batch_size: int = 128
     # train_tok_size: int = 32
     # saved_model_path = 'data/model_tf.pth'
     # train_input_file = 'data/input.txt'

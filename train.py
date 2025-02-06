@@ -4,14 +4,18 @@ from torch.utils.data import DataLoader, IterableDataset
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import math
+import torch.nn.functional as F
 from torchsummary import summary
 from model import SmolLM2
 from utils import get_device
 from config import Config
+import os
 
 class StreamingDataset(IterableDataset):
     def __init__(self, tokenizer, block_size=512):
-        self.dataset = load_dataset("smollm-ai/smollm-corpus", streaming=True)["train"]
+        # self.dataset = load_dataset("smollm-ai/smollm-corpus", streaming=True)["train"]
+        self.dataset =  load_dataset("HuggingFaceTB/smollm-corpus", "cosmopedia-v2", streaming=True)["train"]
+        
         self.tokenizer = tokenizer
         self.block_size = block_size
 
@@ -27,17 +31,18 @@ class StreamingDataset(IterableDataset):
                 yield torch.tensor(buffer[:self.block_size])
                 buffer = buffer[self.block_size:]
 
+
+
 def get_pretrained_tokenizer_n_model():
     checkpoint = "HuggingFaceTB/SmolLM2-135M"
-    device = get_device()
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
     # for multiple GPUs install accelerate and do `model = AutoModelForCausalLM.from_pretrained(checkpoint, device_map="auto")`
     model = AutoModelForCausalLM.from_pretrained(checkpoint)
     return model, tokenizer
 
-def get_custom_tokenizer_n_model():
-    model = SmolLM2(config=Config())
-    tokenizer = AutoTokenizer.from_pretrained("gpt2")  # You can use a different tokenizer
+def get_custom_tokenizer_n_model(config):
+    model = SmolLM2(config=config)
+    tokenizer = AutoTokenizer.from_pretrained(config.tokenizer_name_or_path)  # You can use a different tokenizer
     return model, tokenizer
 
 
@@ -46,13 +51,21 @@ def get_custom_tokenizer_n_model():
 def compareModels(device):
     model1, tokenizer1 = get_pretrained_tokenizer_n_model()
     model1.to(device)
-    model2, tokenizer2 = get_custom_tokenizer_n_model()
+    model2, tokenizer2 = get_custom_tokenizer_n_model(Config())
     model2.to(device)
 
     print("Model 1 - HuggingFaceTB/SmolLM2-135M:")
     print(model1)
     print("Model 2 - Custom SmolLM2-135M Model :")
     print(model2)
+
+def test(model, tokenizer, device, config):
+    inputs = tokenizer.encode("What is Gravity?", return_tensors="pt").to(device)
+    B, T = inputs.size()
+
+    outputs = model.generate(inputs, max_new_tokens=30, temperature=config.nn_temperature, top_k=config.nn_top_k)
+    print(tokenizer.decode(outputs[0]))
+
 
 def train_model():
     device = get_device()
@@ -61,51 +74,92 @@ def train_model():
 
     # Initialize model
     # model, tokenizer = get_pretrained_tokenizer_n_model()
-    model, tokenizer = get_custom_tokenizer_n_model()
+    config = Config()
+    model, tokenizer = get_custom_tokenizer_n_model(config)
     model.to(device)
     vocab_size = tokenizer.vocab_size
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
+    print("Testing the model before training...")
+    test(model, tokenizer, device, config)
+
+    # Try to load checkpoint if it exists
+    start_epoch = 0
+    steps = 0
+    checkpoint_path = config.checkpoints_path + '/checkpoint_final.pt'  # or specify a specific checkpoint like 'checkpoint_step_500.pt'
     
-    inputs = tokenizer.encode("What is Gravity?", return_tensors="pt").to(device)
-    B, T = inputs.size()
-    # # Create causal mask for inference
-    # attention_mask = create_causal_mask(T).to(device)
-    # # Expand mask for batch size and number of heads
-    # attention_mask = attention_mask.view(1, 1, T, T).expand(B, -1, -1, -1)
+    if os.path.exists(checkpoint_path):
+        print(f"Loading checkpoint from {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch']
+        steps = checkpoint['steps']
+        print(f"Resuming from epoch {start_epoch} at step {steps} with loss {checkpoint['loss']}")
 
-    outputs = model.generate(inputs)
-    print(tokenizer.decode(outputs[0]))
-    
+    # Initialize dataset and dataloader
+    dataset = StreamingDataset(tokenizer, block_size=config.nn_train_tok_seq)
+    dataloader = DataLoader(dataset, batch_size=config.batch_size) 
 
-    # # Initialize dataset and dataloader
-    # dataset = StreamingDataset(tokenizer)
-    # dataloader = DataLoader(dataset, batch_size=8)
+    # Training parameters
+    criterion = nn.CrossEntropyLoss()
 
-    # # Training parameters
-    # optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-    # criterion = nn.CrossEntropyLoss()
+    # Training loop
+    model.train()
+    # for epoch in range(start_epoch, 10):  # For this assignment we are not going to go over 1 epoch
+    epoch = start_epoch
 
-    # # Training loop
-    # model.train()
-    # for epoch in range(10):
-    #     for batch_idx, batch in enumerate(dataloader):
-    #         batch = batch.to(device)
-            
-    #         # Create targets (shifted by 1 position)
-    #         targets = batch[:, 1:].contiguous()
-    #         inputs = batch[:, :-1].contiguous()
+    max_steps = 20 # TODO change it to 5000
+    if steps > 0:
+        max_steps = steps + 10 # TODO change it to 500
 
-    #         # Forward pass
-    #         outputs = model(inputs)
-    #         loss = criterion(outputs.view(-1, vocab_size), targets.view(-1))
+    for batch_idx, batch in enumerate(dataloader):
+        batch = batch.to(device)
+        
+        # Create targets (shifted by 1 position)
+        targets = batch[:, 1:].contiguous()
+        inputs = batch[:, :-1].contiguous()
 
-    #         # Backward pass
-    #         optimizer.zero_grad()
-    #         loss.backward()
-    #         optimizer.step()
+        # Forward pass
+        outputs = model(inputs)
+        loss = criterion(outputs.view(-1, vocab_size), targets.view(-1))
 
-    #         if batch_idx % 100 == 0:
-    #             print(f"Epoch: {epoch}, Batch: {batch_idx}, Loss: {loss.item():.4f}")
+        # Backward pass
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        print(f"Epoch: {epoch}, Step: {steps}, Batch: {batch_idx}, Loss: {loss.item():.4f}")
+        if batch_idx % 5 == 0: #TODO change it to 500
+            test(model, tokenizer, device, config)
+        
+        # Save checkpoint every 500 steps TODO  
+        if steps % 5 == 0:
+            checkpoint = {
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': loss.item(),
+                'steps': steps
+            }
+            torch.save(checkpoint, f'{config.checkpoints_path}/checkpoint_step_{steps}.pt')
+            print(f"Saved checkpoint at step {steps}")
+        
+        steps += 1
+        if (steps >= max_steps):
+            #   Save final checkpoint
+            checkpoint = {
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': loss.item(),
+                'steps': steps
+            }
+            torch.save(checkpoint, f'{config.checkpoints_path}/checkpoint_final.pt')
+            print("Saved final checkpoint")
+            break
+
+    print("Training complete")
 
 if __name__ == "__main__":
     train_model()
