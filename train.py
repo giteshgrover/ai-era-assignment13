@@ -133,9 +133,9 @@ def train_model():
     # for epoch in range(start_epoch, 10):  # For this assignment we are not going to go over 1 epoch
     epoch = start_epoch
 
-    max_steps = 20 # TODO change it to 5000
+    max_steps = 5000
     if steps > 0:
-        max_steps = steps + 10 # TODO change it to 500
+        max_steps = 5050 # id already trained for maxSteps, then add 50 more as per teh assignment
 
     for batch_idx, batch in enumerate(dataloader):
         batch = batch.to(device)
@@ -144,6 +144,9 @@ def train_model():
         # Create targets (shifted by 1 position)
         targets = batch[:, 1:].contiguous()
         inputs = batch[:, :-1].contiguous()
+        # print(f"Inputs: {inputs.shape}, Targets: {targets.shape}")
+        # print(f"inputs: {[inputs[0]]}")
+        # print(f"targets: {[targets[0]]}")
 
         optimizer.zero_grad()
 
@@ -159,25 +162,26 @@ def train_model():
                 outputs, loss = model(inputs, targets=targets)
         # Backward pass
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), config.optimizer_clip_grad)
         optimizer.step()
 
         end_time = time.time()
         token_per_second = (inputs.shape[1] * config.batch_size) / (end_time - start_time)
         print(f"Epoch: {epoch}, Step: {steps}, Batch: {batch_idx}, Loss: {loss.item():.4f}, Time: {end_time - start_time:.2f}s, Token/s: {token_per_second:.2f}")
-        if batch_idx % 9 == 0: #TODO change it to 500
-            test(model, tokenizer, device, config)
         
-        # Save checkpoint every 500 or config.checkpoint_interval  TODO  
-        if steps % 5 == 0:
+        # Save chceckpoitn and Test the model every 500 steps
+        if steps % 500 == 0:
             save_checkpoint(model, optimizer, epoch, steps, loss, f'{config.checkpoints_path}/checkpoint_step_{steps}.pt')
             print(f"Saved checkpoint at step {steps}")
+            test(model, tokenizer, device, config)
+            
         
         steps += 1
         if (steps >= max_steps):
-            test(model, tokenizer, device, config)
             #   Save final checkpoint
             save_checkpoint(model, optimizer, epoch, steps, loss, f'{config.checkpoints_path}/checkpoint_final.pt')
             print("Saved final checkpoint")
+            test(model, tokenizer, device, config)
             break
 
     print("Training complete")

@@ -16,9 +16,9 @@ class Config:
     checkpoint_interval: int = 1000
     checkpoints_path = "checkpoints"
     # init_method_std: 0.041666666666666664
-    nn_train_tok_seq: int = 32 # Actual training token sequence
+    nn_train_tok_seq: int = 65 # Actual training token sequence block size 64 + 1 as we are shifting the targets by 1
     # nn_mlp_expansion: int = 4 # Expansion in the MLP layer 
-    batch_size: int = 128
+    batch_size: int = 64
     # train_tok_size: int = 32
     # saved_model_path = 'data/model_tf.pth'
     # train_input_file = 'data/input.txt'
@@ -36,3 +36,4 @@ class Config:
     optimizer_factory_torch_adam_is_fused: bool = True
     optimizer_weight_decay: float = 0.01
     optimizer_zero_stage: int = 0
+    optimizer_clip_grad: float = 1.0
