@@ -207,6 +207,7 @@ Training complete
 ```
 
 ## Training with Additional 50 steps (with checkpoint)
+### Note that the model was saved at 4999 step and resumed from 5000 step
 ```bash
 Loading checkpoint from checkpoints/checkpoint_final.pt
 Resuming from epoch 0 at step 5000 with loss 5.881985664367676
