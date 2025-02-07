@@ -1,7 +1,65 @@
-# ai-era-assignment13
-Assignment 13 for SmolLM2-135 model
+---
+title: SmolLM2 135M Text Generation Demo
+emoji: 📚
+colorFrom: blue
+colorTo: red
+sdk: gradio
+sdk_version: 3.50.2
+app_file: app.py
+pinned: false
+---
 
-# Llama 2 Architecture
+# SmolLM2 Text Generation Demo
+
+This is a simple text generation demo using the SmolLM2 language model with a Gradio interface.
+
+## Description
+
+This application provides a web interface for text generation using the SmolLM2 language model. Users can input a prompt and adjust various generation parameters to control the output.
+
+## Features
+
+- Interactive web interface built with Gradio
+- Adjustable generation parameters:
+  - Maximum new tokens (1-150)
+  - Temperature (0.1-2.0)
+  - Top-K sampling (1-100)
+- Real-time text generation
+
+## Usage
+
+1. Enter your prompt in the text input field
+2. Adjust the generation parameters (optional):
+   - **Max New Tokens**: Controls the length of the generated text
+   - **Temperature**: Controls randomness (higher = more creative, lower = more focused)
+   - **Top-K**: Controls diversity of word choices
+3. Click submit to generate text
+
+## Installation
+
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+ ## Run the application:
+   ```bash
+   python app.py
+   ```
+   The interface will be available at `http://localhost:7860`
+
+
+## Train the model:
+```bash
+python train.py
+```
+
+
+# Model details
+SmolLM2 is a language model designed for [add your model's specific details here]. The model uses the [specify tokenizer] tokenizer from Hugging Face's transformers library.
+
+## Llama 2 Architecture
+
 ![Llama 2 Architecture](./static/llamaModel.jpg)
 Read https://pub.towardsai.net/llama-explained-a70e71e706e9 for more details.
 

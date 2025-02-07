@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 @dataclass
 class Config:
+    seed: int = 49
     vocab_size: int = 49152 # it should match the vocab size of the tokenizer
     num_hidden_layers: int = 30 # number of layers
     num_attention_heads: int = 9 # number of heads

@@ -87,7 +87,8 @@ def save_checkpoint(model, optimizer, epoch, steps, loss, checkpoint_path):
 
 
 def train_model():
-    SEED = 49
+    config = Config()
+    SEED = config.seed
     device = get_device(seed=SEED)
 
     # Compare Actual HuggingFaceTB/SmolLM2-135M with my model for parameters and layers
@@ -98,7 +99,6 @@ def train_model():
 
     # Initialize model
     # model, tokenizer = get_pretrained_tokenizer_n_model()
-    config = Config()
     model, tokenizer = get_custom_tokenizer_n_model(config)
     model.to(device)
     torch.compile(model) # As per the class, torch.compile doesn't work for Windows or Mac, but it appears to be working for Mac M4Pro
@@ -182,6 +182,9 @@ def train_model():
             save_checkpoint(model, optimizer, epoch, steps, loss, f'{config.checkpoints_path}/checkpoint_final.pt')
             print("Saved final checkpoint")
             test(model, tokenizer, device, config)
+            # Save the model
+            torch.save(model.state_dict(), f'{config.checkpoints_path}/model_final.pt')
+            print("Saved the trained model")
             break
 
     print("Training complete")
