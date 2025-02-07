@@ -13,7 +13,7 @@ class Config:
     nn_top_k: int = 50 # top k for the model
     nn_temperature: float = 1.0 # temperature for the model
     tokenizer_name_or_path: str = "HuggingFaceTB/cosmo2-tokenizer"
-    checkpoint_interval: int = 2000
+    checkpoint_interval: int = 1000
     checkpoints_path = "checkpoints"
     # init_method_std: 0.041666666666666664
     nn_train_tok_seq: int = 32 # Actual training token sequence

@@ -191,6 +191,9 @@ class SmolLM2(nn.Module):
         # final layer returning the logits of size (batch_size, vocab_size)
         self.lm_head = nn.Linear(config.nn_embed, config.vocab_size, bias=False)
 
+        # Initialize weights
+        self.apply(self._init_weights)
+
     def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None, use_cache: bool = False):
         if (mask is None):
             mask = self.create_causal_mask(x.shape[1], device=x.device)
@@ -199,6 +202,22 @@ class SmolLM2(nn.Module):
             x = layer(x, mask, use_cache)
         x = self.norm(x)
         return self.lm_head(x)
+    
+    # Linear layers (attention projections, FFN layers, lm_head) are initialized from N(0, 0.02)
+    # Embedding layer is initialized from N(0, 0.02)
+    # All RMSNorm weights are initialized to 1.0
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            std = 0.02
+            if hasattr(module, 'NANGPT_SCALE_INIT'):
+                std *= (2 * self.config.n_layer) ** -0.5
+            torch.nn.init.normal_(module.weight, mean = 0.0, std = std)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.RMSNorm):
+            torch.nn.init.ones_(module.weight)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std = 0.02)
 
     def clear_cache(self):
         """Clear KV cache in all attention layers"""

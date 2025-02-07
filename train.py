@@ -10,6 +10,7 @@ from model import SmolLM2
 from utils import get_device
 from config import Config
 import os
+import time
 
 class StreamingDataset(IterableDataset):
     def __init__(self, tokenizer, block_size=512):
@@ -66,10 +67,29 @@ def test(model, tokenizer, device, config):
     outputs = model.generate(inputs, max_new_tokens=30, temperature=config.nn_temperature, top_k=config.nn_top_k)
     print(tokenizer.decode(outputs[0]))
 
+def load_checkpoint(model, optimizer, checkpoint_path):
+    checkpoint = torch.load(checkpoint_path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    start_epoch = checkpoint['epoch']
+    steps = checkpoint['steps']
+    return start_epoch, steps, checkpoint['loss']
+
+def save_checkpoint(model, optimizer, epoch, steps, loss, checkpoint_path):
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'steps': steps,
+        'loss': loss
+    }, checkpoint_path)
+
 
 def train_model():
-    device = get_device()
+    SEED = 49
+    device = get_device(seed=SEED)
 
+    # Compare Actual HuggingFaceTB/SmolLM2-135M with my model for parameters and layers
     compareModels(device)
 
     # Initialize model
@@ -78,10 +98,7 @@ def train_model():
     model, tokenizer = get_custom_tokenizer_n_model(config)
     model.to(device)
     vocab_size = tokenizer.vocab_size
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-
-    print("Testing the model before training...")
-    test(model, tokenizer, device, config)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4) # TODO LR update
 
     # Try to load checkpoint if it exists
     start_epoch = 0
@@ -90,12 +107,11 @@ def train_model():
     
     if os.path.exists(checkpoint_path):
         print(f"Loading checkpoint from {checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        start_epoch = checkpoint['epoch']
-        steps = checkpoint['steps']
-        print(f"Resuming from epoch {start_epoch} at step {steps} with loss {checkpoint['loss']}")
+        start_epoch, steps, loss = load_checkpoint(model, optimizer, checkpoint_path)
+        print(f"Resuming from epoch {start_epoch} at step {steps} with loss {loss}")
+
+    print("Testing the model before training...")
+    test(model, tokenizer, device, config)
 
     # Initialize dataset and dataloader
     dataset = StreamingDataset(tokenizer, block_size=config.nn_train_tok_seq)
@@ -115,6 +131,7 @@ def train_model():
 
     for batch_idx, batch in enumerate(dataloader):
         batch = batch.to(device)
+        start_time = time.time()
         
         # Create targets (shifted by 1 position)
         targets = batch[:, 1:].contiguous()
@@ -129,33 +146,22 @@ def train_model():
         loss.backward()
         optimizer.step()
 
-        print(f"Epoch: {epoch}, Step: {steps}, Batch: {batch_idx}, Loss: {loss.item():.4f}")
+        end_time = time.time()
+        token_per_second = (inputs.shape[1] * config.batch_size) / (end_time - start_time)
+        print(f"Epoch: {epoch}, Step: {steps}, Batch: {batch_idx}, Loss: {loss.item():.4f}, Time: {end_time - start_time:.2f}s, Token/s: {token_per_second:.2f}")
         if batch_idx % 5 == 0: #TODO change it to 500
             test(model, tokenizer, device, config)
         
-        # Save checkpoint every 500 steps TODO  
+        # Save checkpoint every 500 or config.checkpoint_interval  TODO  
         if steps % 5 == 0:
-            checkpoint = {
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': loss.item(),
-                'steps': steps
-            }
-            torch.save(checkpoint, f'{config.checkpoints_path}/checkpoint_step_{steps}.pt')
+            save_checkpoint(model, optimizer, epoch, steps, loss, f'{config.checkpoints_path}/checkpoint_step_{steps}.pt')
             print(f"Saved checkpoint at step {steps}")
         
         steps += 1
         if (steps >= max_steps):
+            test(model, tokenizer, device, config)
             #   Save final checkpoint
-            checkpoint = {
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': loss.item(),
-                'steps': steps
-            }
-            torch.save(checkpoint, f'{config.checkpoints_path}/checkpoint_final.pt')
+            save_checkpoint(model, optimizer, epoch, steps, loss, f'{config.checkpoints_path}/checkpoint_final.pt')
             print("Saved final checkpoint")
             break
 
