@@ -22,3 +22,17 @@ class Config:
     # train_tok_size: int = 32
     # saved_model_path = 'data/model_tf.pth'
     # train_input_file = 'data/input.txt'
+    optimizer_learning_rate_scheduler_learning_rate: float = 0.003
+    optimizer_learning_rate_scheduler_lr_decay_starting_step: int = 1600000
+    optimizer_learning_rate_scheduler_lr_decay_steps: int = 400000
+    optimizer_learning_rate_scheduler_lr_decay_style: str = "linear"
+    optimizer_learning_rate_scheduler_lr_warmup_steps: int = 2000
+    optimizer_learning_rate_scheduler_lr_warmup_style: str = "linear"
+    optimizer_learning_rate_scheduler_min_decay_lr: float = 0
+    optimizer_factory_adam_beta1: float = 0.9
+    optimizer_factory_adam_beta2: float = 0.95
+    optimizer_factory_adam_eps: float = 1.0e-08
+    optimizer_factory_name: str = "adamW"
+    optimizer_factory_torch_adam_is_fused: bool = True
+    optimizer_weight_decay: float = 0.01
+    optimizer_zero_stage: int = 0

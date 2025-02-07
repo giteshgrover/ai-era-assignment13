@@ -103,7 +103,13 @@ def train_model():
     model.to(device)
     torch.compile(model) # As per the class, torch.compile doesn't work for Windows or Mac, but it appears to be working for Mac M4Pro
     vocab_size = tokenizer.vocab_size
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4) # TODO LR update
+    
+    # Optimizer AdamW with weightDecay
+    optimizer = torch.optim.AdamW(model.parameters(), 
+                                 lr=config.optimizer_learning_rate_scheduler_learning_rate,
+                                 weight_decay=config.optimizer_weight_decay,
+                                 eps=config.optimizer_factory_adam_eps,
+                                 betas=(config.optimizer_factory_adam_beta1, config.optimizer_factory_adam_beta2))
 
     # Try to load checkpoint if it exists
     start_epoch = 0
