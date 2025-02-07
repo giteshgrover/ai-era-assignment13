@@ -73,6 +73,7 @@ class LlamaAttention(nn.Module):
         self.k_proj = nn.Linear(dim, self.num_kv_heads * self.head_dim, bias=False) # (B, T, D) -> (B, T, H_kv * D/H)
         self.v_proj = nn.Linear(dim, self.num_kv_heads * self.head_dim, bias=False) # (B, T, D) -> (B, T, H_kv * D/H)
         self.o_proj = nn.Linear(dim, dim, bias=False)
+        # self.o_proj.NANGPT_SCALE_INIT = 1 TODO do we need weight initialization scaling?
         
         # Cache attributes
         self.k_cache = None
@@ -139,7 +140,10 @@ class LlamaAttention(nn.Module):
         attn = F.softmax(scores, dim=-1)
         out = torch.matmul(attn, v)
         out = out.transpose(1, 2).contiguous().view(batch_size, seq_len, -1)
-        
+
+        # Speed up - Flash Attention (calculation happens in GPU sram and not GPU RAM)  TODO Not sure how to apply this in group query attention?
+        # out F.scaled_dot_product_attention(q, k, v, is_causal = True)
+
         return self.o_proj(out)
 
     def clear_cache(self):
@@ -153,6 +157,7 @@ class LlamaFFN(nn.Module):
         self.gate = nn.Linear(dim, hidden_dim, bias=False)
         self.up = nn.Linear(dim, hidden_dim, bias=False)
         self.down = nn.Linear(hidden_dim, dim, bias=False)
+        # self.down.NANGPT_SCALE_INIT = 1 # TODO do we need weight initialization scaling - Optimization ?
         self.act_fn = nn.SiLU() # SwiGLU activation function
     
     def forward(self, x):
@@ -191,17 +196,24 @@ class SmolLM2(nn.Module):
         # final layer returning the logits of size (batch_size, vocab_size)
         self.lm_head = nn.Linear(config.nn_embed, config.vocab_size, bias=False)
 
+        # Optimization Weight sharing between lm_head and embedding
+        self.lm_head.weight = self.embedding.weight
+
         # Initialize weights
         self.apply(self._init_weights)
 
-    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None, use_cache: bool = False):
+    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None, use_cache: bool = False, targets: Optional[torch.Tensor] = None):
         if (mask is None):
             mask = self.create_causal_mask(x.shape[1], device=x.device)
         x = self.embedding(x)
         for layer in self.layers:
             x = layer(x, mask, use_cache)
         x = self.norm(x)
-        return self.lm_head(x)
+        logits = self.lm_head(x)
+        if targets is not None:
+            loss = F.cross_entropy(logits.view(-1, logits.shape[-1]), targets.view(-1))
+            return logits, loss
+        return logits
     
     # Linear layers (attention projections, FFN layers, lm_head) are initialized from N(0, 0.02)
     # Embedding layer is initialized from N(0, 0.02)

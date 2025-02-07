@@ -68,7 +68,8 @@ def test(model, tokenizer, device, config):
     print(tokenizer.decode(outputs[0]))
 
 def load_checkpoint(model, optimizer, checkpoint_path):
-    checkpoint = torch.load(checkpoint_path)
+    # Use weights_only=True for safer loading
+    checkpoint = torch.load(checkpoint_path, weights_only=True, map_location='cpu')
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     start_epoch = checkpoint['epoch']
@@ -92,11 +93,15 @@ def train_model():
     # Compare Actual HuggingFaceTB/SmolLM2-135M with my model for parameters and layers
     compareModels(device)
 
+    # Speed up
+    torch.set_float32_matmul_precision('high')
+
     # Initialize model
     # model, tokenizer = get_pretrained_tokenizer_n_model()
     config = Config()
     model, tokenizer = get_custom_tokenizer_n_model(config)
     model.to(device)
+    torch.compile(model) # As per the class, torch.compile doesn't work for Windows or Mac, but it appears to be working for Mac M4Pro
     vocab_size = tokenizer.vocab_size
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4) # TODO LR update
 
@@ -110,15 +115,12 @@ def train_model():
         start_epoch, steps, loss = load_checkpoint(model, optimizer, checkpoint_path)
         print(f"Resuming from epoch {start_epoch} at step {steps} with loss {loss}")
 
-    print("Testing the model before training...")
-    test(model, tokenizer, device, config)
+    # print("Testing the model before training...")
+    # test(model, tokenizer, device, config)
 
     # Initialize dataset and dataloader
     dataset = StreamingDataset(tokenizer, block_size=config.nn_train_tok_seq)
     dataloader = DataLoader(dataset, batch_size=config.batch_size) 
-
-    # Training parameters
-    criterion = nn.CrossEntropyLoss()
 
     # Training loop
     model.train()
@@ -137,19 +139,26 @@ def train_model():
         targets = batch[:, 1:].contiguous()
         inputs = batch[:, :-1].contiguous()
 
-        # Forward pass
-        outputs = model(inputs)
-        loss = criterion(outputs.view(-1, vocab_size), targets.view(-1))
-
-        # Backward pass
         optimizer.zero_grad()
+
+        # Forward pass
+        # Speed up - Auto Cast (Forward pass)
+         # Modified autocast section to handle MPS properly
+        if device.type == 'mps':
+            # MPS doesn't fully support autocast yet, run without it
+            outputs, loss = model(inputs, targets=targets)
+        else:
+            # Use autocast for CUDA and CPU
+            with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
+                outputs, loss = model(inputs, targets=targets)
+        # Backward pass
         loss.backward()
         optimizer.step()
 
         end_time = time.time()
         token_per_second = (inputs.shape[1] * config.batch_size) / (end_time - start_time)
         print(f"Epoch: {epoch}, Step: {steps}, Batch: {batch_idx}, Loss: {loss.item():.4f}, Time: {end_time - start_time:.2f}s, Token/s: {token_per_second:.2f}")
-        if batch_idx % 5 == 0: #TODO change it to 500
+        if batch_idx % 9 == 0: #TODO change it to 500
             test(model, tokenizer, device, config)
         
         # Save checkpoint every 500 or config.checkpoint_interval  TODO  
