@@ -66,7 +66,8 @@ Read https://pub.towardsai.net/llama-explained-a70e71e706e9 for more details.
 # Compare Custom SmolLM2-135 with HuggingFaceTB/SmolLM2-135M
  HuggingFaceTB/SmolLM2-135M
 ```bash
-LlamaForCausalLM(
+Model 1 - HuggingFaceTB/SmolLM2-135M:
+Model: LlamaForCausalLM(
   (model): LlamaModel(
     (embed_tokens): Embedding(49152, 576)
     (layers): ModuleList(
@@ -92,11 +93,63 @@ LlamaForCausalLM(
   )
   (lm_head): Linear(in_features=576, out_features=49152, bias=False)
 )
+===============================================================================================
+Layer (type:depth-idx)                        Output Shape              Param #
+===============================================================================================
+LlamaForCausalLM                              --                        --
+├─LlamaModel: 1-1                             --                        --
+│    └─Embedding: 2-1                         [64, 64, 576]             28,311,552
+│    └─LlamaRotaryEmbedding: 2-2              [1, 64, 64]               --
+│    └─ModuleList: 2-3                        --                        --
+│    │    └─LlamaDecoderLayer: 3-1            [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-2            [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-3            [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-4            [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-5            [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-6            [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-7            [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-8            [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-9            [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-10           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-11           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-12           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-13           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-14           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-15           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-16           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-17           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-18           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-19           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-20           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-21           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-22           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-23           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-24           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-25           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-26           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-27           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-28           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-29           [64, 64, 576]             3,540,096
+│    │    └─LlamaDecoderLayer: 3-30           [64, 64, 576]             3,540,096
+│    └─LlamaRMSNorm: 2-4                      [64, 64, 576]             576
+├─Linear: 1-2                                 [64, 64, 49152]           28,311,552
+===============================================================================================
+Total params: 162,826,560
+Trainable params: 162,826,560
+Non-trainable params: 0
+Total mult-adds (G): 10.42
+===============================================================================================
+Input size (MB): 0.03
+Forward/backward pass size (MB): 7876.90
+Params size (MB): 651.31
+Estimated Total Size (MB): 8528.24
+===============================================================================================
 ```
 
 Custom SmolLM2-135
 ```bash 
-SmolLM2(
+Model 2 - Custom SmolLM2-135M Model :
+Model: SmolLM2(
   (embedding): Embedding(49152, 576)
   (layers): ModuleList(
     (0-29): 30 x LlamaBlock(
@@ -119,115 +172,290 @@ SmolLM2(
   (norm): RMSNorm((576,), eps=1e-05, elementwise_affine=True)
   (lm_head): Linear(in_features=576, out_features=49152, bias=False)
 )
+==========================================================================================
+Layer (type:depth-idx)                   Output Shape              Param #
+==========================================================================================
+SmolLM2                                  [64, 64, 49152]           --
+├─Embedding: 1-1                         [64, 64, 576]             28,311,552
+├─ModuleList: 1-2                        --                        --
+│    └─LlamaBlock: 2-1                   [64, 64, 576]             --
+│    │    └─RMSNorm: 3-1                 [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-2          [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-3                 [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-4                [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-2                   [64, 64, 576]             --
+│    │    └─RMSNorm: 3-5                 [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-6          [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-7                 [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-8                [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-3                   [64, 64, 576]             --
+│    │    └─RMSNorm: 3-9                 [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-10         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-11                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-12               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-4                   [64, 64, 576]             --
+│    │    └─RMSNorm: 3-13                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-14         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-15                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-16               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-5                   [64, 64, 576]             --
+│    │    └─RMSNorm: 3-17                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-18         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-19                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-20               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-6                   [64, 64, 576]             --
+│    │    └─RMSNorm: 3-21                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-22         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-23                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-24               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-7                   [64, 64, 576]             --
+│    │    └─RMSNorm: 3-25                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-26         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-27                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-28               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-8                   [64, 64, 576]             --
+│    │    └─RMSNorm: 3-29                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-30         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-31                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-32               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-9                   [64, 64, 576]             --
+│    │    └─RMSNorm: 3-33                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-34         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-35                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-36               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-10                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-37                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-38         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-39                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-40               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-11                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-41                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-42         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-43                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-44               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-12                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-45                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-46         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-47                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-48               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-13                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-49                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-50         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-51                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-52               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-14                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-53                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-54         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-55                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-56               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-15                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-57                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-58         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-59                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-60               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-16                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-61                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-62         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-63                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-64               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-17                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-65                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-66         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-67                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-68               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-18                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-69                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-70         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-71                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-72               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-19                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-73                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-74         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-75                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-76               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-20                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-77                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-78         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-79                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-80               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-21                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-81                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-82         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-83                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-84               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-22                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-85                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-86         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-87                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-88               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-23                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-89                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-90         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-91                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-92               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-24                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-93                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-94         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-95                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-96               [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-25                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-97                [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-98         [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-99                [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-100              [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-26                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-101               [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-102        [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-103               [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-104              [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-27                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-105               [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-106        [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-107               [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-108              [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-28                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-109               [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-110        [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-111               [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-112              [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-29                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-113               [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-114        [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-115               [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-116              [64, 64, 576]             2,654,208
+│    └─LlamaBlock: 2-30                  [64, 64, 576]             --
+│    │    └─RMSNorm: 3-117               [64, 64, 576]             576
+│    │    └─LlamaAttention: 3-118        [64, 64, 576]             884,736
+│    │    └─RMSNorm: 3-119               [64, 64, 576]             576
+│    │    └─LlamaFFN: 3-120              [64, 64, 576]             2,654,208
+├─RMSNorm: 1-3                           [64, 64, 576]             576
+├─Linear: 1-4                            [64, 64, 49152]           28,311,552
+==========================================================================================
+Total params: 162,826,560
+Trainable params: 162,826,560
+Non-trainable params: 0
+Total mult-adds (G): 10.42
+==========================================================================================
+Input size (MB): 0.03
+Forward/backward pass size (MB): 7876.90
+Params size (MB): 651.31
+Estimated Total Size (MB): 8528.24
+==========================================================================================
 
 ```
 
 # Training Logs
-## Training with 5000 steps (without checkpoint)
+## Training with 5000 steps (Starting from step 0)
 ```bash
 (venv) gitesh.grover@Giteshs-MacBook-Pro ai-era-assignment13 % python train.py
 
 
 Resolving data files: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:00<00:00, 720.56it/s]
 Resolving data files: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:00<00:00, 562123.22it/s]
-Epoch: 0, Step: 0, Batch: 0, Loss: 10.9101, Time: 1.44s, Token/s: 2842.75
+Resolving data files: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:00<00:00, 336.18it/s]
+Resolving data files: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:00<00:00, 708129.25it/s]
+Epoch: 0, Step: 0, Batch(micro): 0, Loss: 11.3113, Time: 1.45s, Token/s: 2824.73
 Saved checkpoint at step 0
-What is Gravity? thymopenedi something aneur checklist fertiliserlete hiding Watching [[GuardinnamonGuard thym thym something multilinguali runway astronlighten runwayinnamon nastylighten disadvant snout plumquest
-Epoch: 0, Step: 1, Batch: 1, Loss: 10.6729, Time: 2.00s, Token/s: 2044.98
-Epoch: 0, Step: 2, Batch: 2, Loss: 9.2034, Time: 1.16s, Token/s: 3517.56
-Epoch: 0, Step: 3, Batch: 3, Loss: 8.5723, Time: 1.09s, Token/s: 3766.14
-Epoch: 0, Step: 4, Batch: 4, Loss: 8.1478, Time: 1.07s, Token/s: 3845.85
+What is Gravity?
+ JunMon
+ observation,,,, observation,affin,,,, Treating,Seququestion,,,.,,,,,,
+Epoch: 0, Step: 1, Batch(micro): 1, Loss: 10.2534, Time: 2.58s, Token/s: 1586.06
+Epoch: 0, Step: 2, Batch(micro): 2, Loss: 10.3703, Time: 1.23s, Token/s: 3323.19
+Epoch: 0, Step: 3, Batch(micro): 3, Loss: 9.3798, Time: 1.09s, Token/s: 3769.05
+Epoch: 0, Step: 4, Batch(micro): 4, Loss: 8.9930, Time: 1.09s, Token/s: 3741.50
+Epoch: 0, Step: 5, Batch(micro): 5, Loss: 8.7043, Time: 1.12s, Token/s: 3652.90
+Epoch: 0, Step: 6, Batch(micro): 6, Loss: 8.5976, Time: 1.08s, Token/s: 3776.95
 :
 :
-Epoch: 0, Step: 500, Batch: 500, Loss: 5.9723, Time: 1.07s, Token/s: 3825.45
+Epoch: 0, Step: 497, Batch(micro): 497, Loss: 6.1369, Time: 1.17s, Token/s: 3493.98
+Epoch: 0, Step: 498, Batch(micro): 498, Loss: 5.6010, Time: 1.12s, Token/s: 3647.57
+Epoch: 0, Step: 499, Batch(micro): 499, Loss: 5.8359, Time: 1.10s, Token/s: 3716.22
+Epoch: 0, Step: 500, Batch(micro): 500, Loss: 5.7775, Time: 1.08s, Token/s: 3777.33
 Saved checkpoint at step 500
-What is Gravity? We call us to use, I can create a `e` function to do to add a few to calculate their lives.
-* An the need
-Epoch: 0, Step: 501, Batch: 501, Loss: 6.0491, Time: 1.58s, Token/s: 2595.98
+What is Gravity? These to his device is the end of your fingers and its people. That's all about the body you can make, and give you ever, some
+Epoch: 0, Step: 501, Batch(micro): 501, Loss: 5.8698, Time: 2.16s, Token/s: 1897.06
+Epoch: 0, Step: 502, Batch(micro): 502, Loss: 6.0635, Time: 1.13s, Token/s: 3631.70
+Epoch: 0, Step: 503, Batch(micro): 503, Loss: 6.5260, Time: 1.11s, Token/s: 3694.65
 :
 :
-Epoch: 0, Step: 998, Batch: 998, Loss: 5.8647, Time: 1.25s, Token/s: 3289.61
-Epoch: 0, Step: 999, Batch: 999, Loss: 6.0096, Time: 1.10s, Token/s: 3726.16
-Epoch: 0, Step: 1000, Batch: 1000, Loss: 6.4388, Time: 1.09s, Token/s: 3763.74
+Epoch: 0, Step: 998, Batch(micro): 998, Loss: 5.7383, Time: 1.07s, Token/s: 3812.48
+Epoch: 0, Step: 999, Batch(micro): 999, Loss: 5.8485, Time: 1.09s, Token/s: 3753.90
+Epoch: 0, Step: 1000, Batch(micro): 1000, Loss: 6.2793, Time: 1.10s, Token/s: 3718.65
 Saved checkpoint at step 1000
-What is Gravity? These tales of sharing a beautiful blend of the art, where will understand these questions where remain.
-
-III. **4.g., the Individuals
+What is Gravity? They then, consider the class, many people might work together. After they, remember their feet, I loved you, what happens to think how they
+Epoch: 0, Step: 1001, Batch(micro): 1001, Loss: 5.7521, Time: 2.86s, Token/s: 1431.97
 :
 :
-Epoch: 0, Step: 1498, Batch: 1498, Loss: 7.3296, Time: 1.06s, Token/s: 3878.60
-Epoch: 0, Step: 1499, Batch: 1499, Loss: 6.0611, Time: 1.06s, Token/s: 3864.26
-Epoch: 0, Step: 1500, Batch: 1500, Loss: 6.1140, Time: 1.08s, Token/s: 3789.80
+Epoch: 0, Step: 1500, Batch(micro): 1500, Loss: 5.8363, Time: 1.06s, Token/s: 3868.92
 Saved checkpoint at step 1500
 What is Gravity?
 
-Now imagine don't forget, "It have been the game?" But there are just as an 'L', does not can he noticed,
+Imagine being something difficult to be doing so incredible artists to keep't enough their emotions. Imagine walking by others have all this person has never always
+Epoch: 0, Step: 1501, Batch(micro): 1501, Loss: 6.0452, Time: 1.49s, Token/s: 2740.78
 
 :
 :
 :
 :
 
-Epoch: 0, Step: 3498, Batch: 3498, Loss: 5.7145, Time: 1.07s, Token/s: 3830.33
-Epoch: 0, Step: 3499, Batch: 3499, Loss: 5.7578, Time: 1.09s, Token/s: 3767.61
-Epoch: 0, Step: 3500, Batch: 3500, Loss: 6.0798, Time: 1.07s, Token/s: 3811.98
+Epoch: 0, Step: 3499, Batch(micro): 3499, Loss: 5.7676, Time: 1.06s, Token/s: 3853.71
+Epoch: 0, Step: 3500, Batch(micro): 3500, Loss: 6.0451, Time: 1.06s, Token/s: 3856.43
 Saved checkpoint at step 3500
-What is Gravity? Let's how a "P"? You might need to play and a new environment that makes it up a big planet of the whole piece of the information
-Epoch: 0, Step: 3501, Batch: 3501, Loss: 5.8375, Time: 1.47s, Token/s: 2790.70
-Epoch: 0, Step: 3502, Batch: 3502, Loss: 6.3435, Time: 1.07s, Token/s: 3838.95
-Epoch: 0, Step: 3503, Batch: 3503, Loss: 5.8192, Time: 1.05s, Token/s: 3901.14
+What is Gravity? Well does you do your own body, a small way of your friend, or maybe we can work to create the surface.
+7. **G
+Epoch: 0, Step: 3501, Batch(micro): 3501, Loss: 5.7938, Time: 1.38s, Token/s: 2959.03
+Epoch: 0, Step: 3502, Batch(micro): 3502, Loss: 6.3508, Time: 1.08s, Token/s: 3785.58
 
 :
 :
-Epoch: 0, Step: 4496, Batch: 4496, Loss: 5.5488, Time: 1.06s, Token/s: 3862.06
-Epoch: 0, Step: 4497, Batch: 4497, Loss: 5.8281, Time: 1.07s, Token/s: 3821.71
-Epoch: 0, Step: 4498, Batch: 4498, Loss: 5.5703, Time: 1.07s, Token/s: 3844.92
-Epoch: 0, Step: 4499, Batch: 4499, Loss: 6.0630, Time: 1.06s, Token/s: 3854.04
-Epoch: 0, Step: 4500, Batch: 4500, Loss: 5.5889, Time: 1.06s, Token/s: 3860.19
+Epoch: 0, Step: 4498, Batch(micro): 4498, Loss: 5.6528, Time: 1.06s, Token/s: 3870.78
+Epoch: 0, Step: 4499, Batch(micro): 4499, Loss: 6.1692, Time: 1.06s, Token/s: 3850.22
+Epoch: 0, Step: 4500, Batch(micro): 4500, Loss: 5.6509, Time: 1.08s, Token/s: 3784.61
 Saved checkpoint at step 4500
 What is Gravity?
 
-V. **Additional 2: Prepare a Power
-
-* **I and the Eaught of Life
-
-Before our exploration, understanding
+Have you ever seen how they go at home as the bustling forest. How do you really your way, what makes it would affect! Well
+Epoch: 0, Step: 4501, Batch(micro): 4501, Loss: 5.7961, Time: 1.49s, Token/s: 2746.98
+Epoch: 0, Step: 4502, Batch(micro): 4502, Loss: 5.8517, Time: 1.08s, Token/s: 3804.95
+Epoch: 0, Step: 4503, Batch(micro): 4503, Loss: 6.3001, Time: 1.06s, Token/s: 3872.11
 :
 :
-Epoch: 0, Step: 4996, Batch: 4996, Loss: 6.1501, Time: 1.06s, Token/s: 3865.19
-Epoch: 0, Step: 4997, Batch: 4997, Loss: 5.9107, Time: 1.05s, Token/s: 3884.67
-Epoch: 0, Step: 4998, Batch: 4998, Loss: 5.7005, Time: 1.07s, Token/s: 3834.26
-Epoch: 0, Step: 4999, Batch: 4999, Loss: 5.8820, Time: 1.07s, Token/s: 3814.07
+Epoch: 0, Step: 4999, Batch(micro): 4999, Loss: 6.1256, Time: 1.06s, Token/s: 3853.00
+Epoch: 0, Step: 5000, Batch(micro): 5000, Loss: 6.0105, Time: 1.07s, Token/s: 3833.68
+Saved checkpoint at step 5000
+What is Gravity?
+Now that you know that there were many people around you might have to be to ask from us. By understanding more efficiently, we've witnessed some
 Saved final checkpoint
-What is Gravity? You would be a better big way, there are people have just like!
-
-As they saw out to the world in the world or making a
+What is Gravity? Well, I know that, they are plenty of people! This can learn that everyone's own own opinions –, I promise to learn these essential ones
+Saved the trained model
 Training complete
+
 
 ```
 
-## Training with Additional 50 steps (with checkpoint)
-### Note that the model was saved at 4999 step and resumed from 5000 step
+## Training with Additional 50 steps (Starting from checkpoint )
 ```bash
-Loading checkpoint from checkpoints/checkpoint_final.pt
-Resuming from epoch 0 at step 5000 with loss 5.881985664367676
-Resolving data files: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:00<00:00, 313.79it/s]
-Resolving data files: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:00<00:00, 462574.35it/s]
-Epoch: 0, Step: 5000, Batch: 0, Loss: 5.6473, Time: 2.69s, Token/s: 1520.90
-Saved checkpoint at step 5000
-What is Gravity? Well, remember, there's where those who do something as part of art and animals, family around us. For instance, there's like! But
-Epoch: 0, Step: 5001, Batch: 1, Loss: 6.1124, Time: 1.54s, Token/s: 2660.36
-Epoch: 0, Step: 5002, Batch: 2, Loss: 5.8381, Time: 1.11s, Token/s: 3680.22
+Last Saved epoch 0 and step 5000 with loss 6.010481357574463
+Resuming from epoch 0 and next step 5001 with loss 6.010481357574463
+Resolving data files: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:00<00:00, 442.22it/s]
+Resolving data files: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [00:00<00:00, 334258.71it/s]
+Epoch: 0, Step: 5001, Batch(micro): 5001, Loss: 5.8380, Time: 3.07s, Token/s: 1334.43
+Epoch: 0, Step: 5002, Batch(micro): 5002, Loss: 6.2662, Time: 1.10s, Token/s: 3736.21
+Epoch: 0, Step: 5003, Batch(micro): 5003, Loss: 6.0323, Time: 1.09s, Token/s: 3762.44
+Epoch: 0, Step: 5004, Batch(micro): 5004, Loss: 6.1844, Time: 1.20s, Token/s: 3407.99
+Epoch: 0, Step: 5005, Batch(micro): 5005, Loss: 5.8835, Time: 1.09s, Token/s: 3743.08
+Epoch: 0, Step: 5006, Batch(micro): 5006, Loss: 5.6408, Time: 1.09s, Token/s: 3751.67
+Epoch: 0, Step: 5007, Batch(micro): 5007, Loss: 5.7871, Time: 1.08s, Token/s: 3782.06
 :
 :
-Epoch: 0, Step: 5044, Batch: 44, Loss: 6.1118, Time: 1.09s, Token/s: 3749.53
-Epoch: 0, Step: 5045, Batch: 45, Loss: 5.8618, Time: 1.11s, Token/s: 3676.88
-Epoch: 0, Step: 5046, Batch: 46, Loss: 5.8893, Time: 1.08s, Token/s: 3784.70
-Epoch: 0, Step: 5047, Batch: 47, Loss: 5.7507, Time: 1.10s, Token/s: 3729.83
-Epoch: 0, Step: 5048, Batch: 48, Loss: 5.6882, Time: 1.10s, Token/s: 3715.38
-Epoch: 0, Step: 5049, Batch: 49, Loss: 5.7396, Time: 1.09s, Token/s: 3745.38
+:
+Epoch: 0, Step: 5047, Batch(micro): 5047, Loss: 6.0360, Time: 1.11s, Token/s: 3702.12
+Epoch: 0, Step: 5048, Batch(micro): 5048, Loss: 5.8714, Time: 1.09s, Token/s: 3755.10
+Epoch: 0, Step: 5049, Batch(micro): 5049, Loss: 5.8596, Time: 1.09s, Token/s: 3769.04
+Epoch: 0, Step: 5050, Batch(micro): 5050, Loss: 5.8586, Time: 1.09s, Token/s: 3746.08
 Saved final checkpoint
-What is Gravity? Have you would be wondering what life, you don't just how to do? She needed, they have had to know that "but these things has
+What is Gravity? Well for sharing, we're going to understand this fascinating adventure, and it means of our beliefs: the world of a special. Now that our planet
+Saved the trained model
 Training complete
 
 ```

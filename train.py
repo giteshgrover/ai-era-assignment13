@@ -5,7 +5,7 @@ from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import math
 import torch.nn.functional as F
-from torchsummary import summary
+from torchinfo import summary
 from model import SmolLM2
 from utils import get_device
 from config import Config
@@ -49,16 +49,16 @@ def get_custom_tokenizer_n_model(config):
 
     # return mask.to(device)
 
-def compareModels(device):
+def compareModels(device, config):
     model1, tokenizer1 = get_pretrained_tokenizer_n_model()
     model1.to(device)
     model2, tokenizer2 = get_custom_tokenizer_n_model(Config())
     model2.to(device)
 
     print("Model 1 - HuggingFaceTB/SmolLM2-135M:")
-    print(model1)
+    printModelSummary(model1, config)
     print("Model 2 - Custom SmolLM2-135M Model :")
-    print(model2)
+    printModelSummary(model2, config)
 
 def test(model, tokenizer, device, config):
     inputs = tokenizer.encode("What is Gravity?", return_tensors="pt").to(device)
@@ -84,7 +84,12 @@ def save_checkpoint(model, optimizer, epoch, steps, loss, checkpoint_path):
         'steps': steps,
         'loss': loss
     }, checkpoint_path)
-
+    
+def printModelSummary(model, config):
+    print(f"Model: {model}")
+    summary(model, 
+            input_size=(config.micro_batch_size, config.nn_train_tok_seq),
+             dtypes=[torch.long])
 
 def train_model():
     config = Config()
@@ -92,7 +97,7 @@ def train_model():
     device = get_device(seed=SEED)
 
     # Compare Actual HuggingFaceTB/SmolLM2-135M with my model for parameters and layers
-    compareModels(device)
+    compareModels(device, config)
 
     # Speed up
     torch.set_float32_matmul_precision('high')
@@ -101,6 +106,7 @@ def train_model():
     # model, tokenizer = get_pretrained_tokenizer_n_model()
     model, tokenizer = get_custom_tokenizer_n_model(config)
     model.to(device)
+    # printModelSummary(model, config)
     torch.compile(model) # As per the class, torch.compile doesn't work for Windows or Mac, but it appears to be working for Mac M4Pro
     vocab_size = tokenizer.vocab_size
     
@@ -113,31 +119,36 @@ def train_model():
 
     # Try to load checkpoint if it exists
     start_epoch = 0
-    steps = 0
+    start_step = 0
     checkpoint_path = config.checkpoints_path + '/checkpoint_final.pt'  # or specify a specific checkpoint like 'checkpoint_step_500.pt'
     
     if os.path.exists(checkpoint_path):
         print(f"Loading checkpoint from {checkpoint_path}")
-        start_epoch, steps, loss = load_checkpoint(model, optimizer, checkpoint_path)
-        print(f"Resuming from epoch {start_epoch} at step {steps} with loss {loss}")
+        start_epoch, start_step, loss = load_checkpoint(model, optimizer, checkpoint_path)
+        print(f"Last Saved epoch {start_epoch} and step {start_step} with loss {loss}")
+        start_step = start_step + 1
+        print(f"Resuming from epoch {start_epoch} and next step {start_step} with loss {loss}")
 
     # print("Testing the model before training...")
     # test(model, tokenizer, device, config)
 
     # Initialize dataset and dataloader
     dataset = StreamingDataset(tokenizer, block_size=config.nn_train_tok_seq)
-    dataloader = DataLoader(dataset, batch_size=config.batch_size) 
+    dataloader = DataLoader(dataset, batch_size=config.micro_batch_size + 1) # + 1 to get an extra token for token we use [0..n] for input and [1..n+1] for target
 
     # Training loop
     model.train()
     # for epoch in range(start_epoch, 10):  # For this assignment we are not going to go over 1 epoch
     epoch = start_epoch
 
+    checkpoint_interval = 500
     max_steps = 5000
-    if steps > 0:
-        max_steps = 5050 # id already trained for maxSteps, then add 50 more as per teh assignment
+    if start_step > 0:
+        max_steps = 5050 # id already trained for maxSteps, then add 50 more as per the assignment
 
-    for batch_idx, batch in enumerate(dataloader):
+    gradient_accumalate_steps = config.intended_batch_size // config.micro_batch_size
+    optimizer.zero_grad() # TODO I am not sure if I need to call this one time in beginning when using the accumalating gradient
+    for step, batch in enumerate(dataloader, start=start_step):
         batch = batch.to(device)
         start_time = time.time()
         
@@ -147,8 +158,6 @@ def train_model():
         # print(f"Inputs: {inputs.shape}, Targets: {targets.shape}")
         # print(f"inputs: {[inputs[0]]}")
         # print(f"targets: {[targets[0]]}")
-
-        optimizer.zero_grad()
 
         # Forward pass
         # Speed up - Auto Cast (Forward pass)
@@ -163,23 +172,27 @@ def train_model():
         # Backward pass
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), config.optimizer_clip_grad)
+        
+        # Accumulate Gradient until meet the intended batch size or if its the last step
+        # TODO loss is coming as Nan after the following evaluates to true
+        # if ((step + 1) % gradient_accumalate_steps == 0 or step >= max_steps):
         optimizer.step()
+        optimizer.zero_grad()   
 
         end_time = time.time()
-        token_per_second = (inputs.shape[1] * config.batch_size) / (end_time - start_time)
-        print(f"Epoch: {epoch}, Step: {steps}, Batch: {batch_idx}, Loss: {loss.item():.4f}, Time: {end_time - start_time:.2f}s, Token/s: {token_per_second:.2f}")
+        token_per_second = (inputs.shape[1] * inputs.shape[0]) / (end_time - start_time)
+        # print(f"Epoch: {epoch}, Step: {step}, Batch(micro): {step}, Batch (considering grad accum): {step // gradient_accumalate_steps},  Loss: {loss.item():.4f}, Time: {end_time - start_time:.2f}s, Token/s: {token_per_second:.2f}")
+        print(f"Epoch: {epoch}, Step: {step}, Batch(micro): {step}, Loss: {loss.item():.4f}, Time: {end_time - start_time:.2f}s, Token/s: {token_per_second:.2f}")
         
-        # Save chceckpoitn and Test the model every 500 steps
-        if steps % 500 == 0:
-            save_checkpoint(model, optimizer, epoch, steps, loss, f'{config.checkpoints_path}/checkpoint_step_{steps}.pt')
-            print(f"Saved checkpoint at step {steps}")
+        # Save checkpoint and Test the model every 500 steps
+        if step % checkpoint_interval == 0:
+            save_checkpoint(model, optimizer, epoch, step, loss, f'{config.checkpoints_path}/checkpoint_step_{step}.pt')
+            print(f"Saved checkpoint at step {step}")
             test(model, tokenizer, device, config)
-            
         
-        steps += 1
-        if (steps >= max_steps):
+        if (step  >= max_steps):
             #   Save final checkpoint
-            save_checkpoint(model, optimizer, epoch, steps, loss, f'{config.checkpoints_path}/checkpoint_final.pt')
+            save_checkpoint(model, optimizer, epoch, step, loss, f'{config.checkpoints_path}/checkpoint_final.pt')
             print("Saved final checkpoint")
             test(model, tokenizer, device, config)
             # Save the model

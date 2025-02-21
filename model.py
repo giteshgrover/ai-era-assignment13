@@ -199,10 +199,12 @@ class SmolLM2(nn.Module):
         # Optimization Weight sharing between lm_head and embedding
         self.lm_head.weight = self.embedding.weight
 
+        self.std = config.init_method_std
         # Initialize weights
         self.apply(self._init_weights)
 
     def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None, use_cache: bool = False, targets: Optional[torch.Tensor] = None):
+        # TODO Should the mask be created for inference? if yes, would it be same?
         if (mask is None):
             mask = self.create_causal_mask(x.shape[1], device=x.device)
         x = self.embedding(x)
@@ -220,7 +222,7 @@ class SmolLM2(nn.Module):
     # All RMSNorm weights are initialized to 1.0
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
-            std = 0.02
+            std =self.std
             if hasattr(module, 'NANGPT_SCALE_INIT'):
                 std *= (2 * self.config.n_layer) ** -0.5
             torch.nn.init.normal_(module.weight, mean = 0.0, std = std)
@@ -229,7 +231,7 @@ class SmolLM2(nn.Module):
         elif isinstance(module, nn.RMSNorm):
             torch.nn.init.ones_(module.weight)
         elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std = 0.02)
+            torch.nn.init.normal_(module.weight, mean=0.0, std = self.std) # Should it always be .02?
 
     def clear_cache(self):
         """Clear KV cache in all attention layers"""
@@ -274,6 +276,7 @@ class SmolLM2(nn.Module):
             # Get the current sequence length including cached tokens
             current_seq_len = seq_len + idx
 
+            # TODO is it correct? Should the mask be created for inference? if yes, would it be same?
             next_mask = self.create_causal_mask(current_seq_len, device=input_ids.device)
             
             # Create mask that includes both the current input and cached tokens

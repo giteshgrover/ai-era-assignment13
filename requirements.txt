@@ -5,4 +5,5 @@ numpy>=1.24.0
 tqdm>=4.65.0
 huggingface-hub>=0.16.0
 tokenizers>=0.13.0
-gradio>=4.0.0 
+gradio>=4.0.0
+torchinfo
