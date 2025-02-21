@@ -132,8 +132,8 @@ def train_model():
     # test(model, tokenizer, device, config)
 
     # Initialize dataset and dataloader
-    dataset = StreamingDataset(tokenizer, block_size=config.nn_train_tok_seq)
-    dataloader = DataLoader(dataset, batch_size=config.micro_batch_size + 1) # + 1 to get an extra token for token we use [0..n] for input and [1..n+1] for target
+    dataset = StreamingDataset(tokenizer, block_size=config.nn_train_tok_seq + 1) # + 1 to get an extra token for token we use [0..n] for input and [1..n+1] for target
+    dataloader = DataLoader(dataset, batch_size=config.micro_batch_size ) 
 
     # Training loop
     model.train()
@@ -160,9 +160,8 @@ def train_model():
         # Create targets (shifted by 1 position)
         targets = batch[:, 1:].contiguous()
         inputs = batch[:, :-1].contiguous()
-        # print(f"Inputs: {inputs.shape}, Targets: {targets.shape}")
-        # print(f"inputs: {[inputs[0]]}")
-        # print(f"targets: {[targets[0]]}")
+        # print(f"inputs: {inputs.shape}, targets: {targets.shape}")
+        # print(f"input.device: {inputs.device}, targets.device: {targets.device}")
 
         # Forward pass
         # Speed up - Auto Cast (Forward pass)
