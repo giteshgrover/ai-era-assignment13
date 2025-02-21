@@ -121,7 +121,6 @@ def train_model():
     start_epoch = 0
     start_step = 0
     checkpoint_path = config.checkpoints_path + '/checkpoint_final.pt'  # or specify a specific checkpoint like 'checkpoint_step_500.pt'
-    
     if os.path.exists(checkpoint_path):
         print(f"Loading checkpoint from {checkpoint_path}")
         start_epoch, start_step, loss = load_checkpoint(model, optimizer, checkpoint_path)
@@ -146,7 +145,13 @@ def train_model():
     if start_step > 0:
         max_steps = 5050 # id already trained for maxSteps, then add 50 more as per the assignment
 
+    if start_step >= max_steps:
+        print(f"Already Trained for max steps {max_steps}. Only testing and existing")
+        test(model, tokenizer, device, config)
+        return
+        
     gradient_accumalate_steps = config.intended_batch_size // config.micro_batch_size
+    print(f"gradient_accumalate_steps: {gradient_accumalate_steps}")
     optimizer.zero_grad() # TODO I am not sure if I need to call this one time in beginning when using the accumalating gradient
     for step, batch in enumerate(dataloader, start=start_step):
         batch = batch.to(device)
@@ -171,18 +176,18 @@ def train_model():
                 outputs, loss = model(inputs, targets=targets)
         # Backward pass
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), config.optimizer_clip_grad)
+        # What is the following line and who added it?
+        #torch.nn.utils.clip_grad_norm_(model.parameters(), config.optimizer_clip_grad)
         
         # Accumulate Gradient until meet the intended batch size or if its the last step
-        # TODO loss is coming as Nan after the following evaluates to true
-        # if ((step + 1) % gradient_accumalate_steps == 0 or step >= max_steps):
-        optimizer.step()
-        optimizer.zero_grad()   
+        if ((step + 1) % gradient_accumalate_steps == 0 or step >= max_steps):
+            optimizer.step()
+            optimizer.zero_grad()   
 
         end_time = time.time()
         token_per_second = (inputs.shape[1] * inputs.shape[0]) / (end_time - start_time)
-        # print(f"Epoch: {epoch}, Step: {step}, Batch(micro): {step}, Batch (considering grad accum): {step // gradient_accumalate_steps},  Loss: {loss.item():.4f}, Time: {end_time - start_time:.2f}s, Token/s: {token_per_second:.2f}")
-        print(f"Epoch: {epoch}, Step: {step}, Batch(micro): {step}, Loss: {loss.item():.4f}, Time: {end_time - start_time:.2f}s, Token/s: {token_per_second:.2f}")
+        print(f"Epoch: {epoch}, Step: {step}, Batch(micro): {step}, Batch (considering grad accum): {step // gradient_accumalate_steps},  Loss: {loss.item():.4f}, Time: {end_time - start_time:.2f}s, Token/s: {token_per_second:.2f}")
+        # print(f"Epoch: {epoch}, Step: {step}, Batch(micro): {step}, Loss: {loss.item():.4f}, Time: {end_time - start_time:.2f}s, Token/s: {token_per_second:.2f}")
         
         # Save checkpoint and Test the model every 500 steps
         if step % checkpoint_interval == 0:
@@ -191,13 +196,13 @@ def train_model():
             test(model, tokenizer, device, config)
         
         if (step  >= max_steps):
-            #   Save final checkpoint
+            #   Save final checkpoint 
             save_checkpoint(model, optimizer, epoch, step, loss, f'{config.checkpoints_path}/checkpoint_final.pt')
             print("Saved final checkpoint")
             test(model, tokenizer, device, config)
-            # Save the model
-            torch.save(model.state_dict(), f'{config.checkpoints_path}/model_final.pt')
-            print("Saved the trained model")
+            # Save the model TODO Already Saved
+            # torch.save(model.state_dict(), f'{config.checkpoints_path}/model_final.pt')
+            # print("Saved the trained model")
             break
 
     print("Training complete")
